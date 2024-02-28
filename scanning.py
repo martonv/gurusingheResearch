@@ -14,6 +14,7 @@ import time
 import pyvisa
 
 valonPort = 'COM3'
+zaberPort = 'COM4'
 srsAddress = 'GPIB0::9::INSTR'
 delay = 0.1
 
@@ -35,19 +36,10 @@ class VSerialPort(serial.Serial):
         print(f"Serial port {valonPort} opened successfully.")
         time.sleep(1.0)
 
-class SRSpyvisa(srsAddress):
-    def __init__(self, address):
-        self.address = address
-        self.rm = pyvisa.Resourcemanager('')
-        self.instr = self.rm.open_resource(self.address)
-
-
-
-connectSRS = SRSpyvisa(srsAddress)
 connectValon = VSerialPort('COM3')
 
 #write command to valon
-def writeCommand(cmd):
+def writeCommandValon(cmd):
     formatCmd = f"{cmd}"
     connectValon.reset_input_buffer()
 
@@ -71,10 +63,87 @@ def writeCommand(cmd):
     response = response_bytes.decode().strip()
     print(response)
 
+def connectSRS(srsAddress):
+    global inst
+    rm = pyvisa.ResourceManager('')
+    rm.list_resources()
+
+    inst = rm.open_resource(srsAddress)
+    print(inst.write('IS'))
+    
+def commandSRS(srsCmd):
+    print("Sending ", srsCmd)
+    returned = inst.write(srsCmd)
+    print(returned)
+
+
+
+#initializing Valon+SRS
 print("Connecting to Valon - Standard COM3")
 connectValon = VSerialPort('COM3')
 writeCommand("ID?")
-print("Connecting to SRS...")
+print("Done!")
+print("Connecting to SRS... Address: ", srsAddress)
+connectSRS(srsAddress)
+print("Done!")
+
+#valon inputs
+valFreq = input("Enter Valon starting frequency (MHz): ")
+valEndFreq = input("Enter Valon ending frequency (MHz): ")
+valStepFreq = input("Enter Valon Freq. step size: ")
+writeCommandValon("MODe CW ")
+writeCommandValon("Frequency {valFreq}M")
+writeCommandValon("STEP {valStepFreq}M")
+
+#srs inputs
+commandSRS("DT 5,6,1E-6")
+
+#zaber error catch
+def zaberCommandCheck(reply):
+    """
+    Return true if command succeeded, print reason and return false if command
+    rejected
+
+    param reply: AsciiReply
+
+    return: boolean
+    """
+    if reply.reply_flag != "OK": # If command not accepted (received "RJ")
+        print ("Danger! Command rejected because: {}".format(reply.data))
+        return False
+    else: # Command was accepted
+        print(reply)
+        return True
+
+#zaber controls + inputs
+#add in maximum distance error catch
+with AsciiSerial(zaberPort) as port:
+    zaber = AsciiDevice(port, 1)
+    print("Current position: ", int(zaber.get_position())/20997, " mm")
+
+    sendHome = input("Send to home (0 pos)? Y/N: ")
+    if sendHome == "Y":
+        reply = zaber.home()
+        zaberCommandCheck(reply)
+    changeVel = input("Change velocity? Y/N: ")
+    if changeVel == "Y":
+        changeVelVal = input("Enter new velocity in mm: ")
+        reply = zaber.move_vel(changeVelVal)
+        zaberCommandCheck(reply)
+
+    absOrRel = input("Change starting position? abs/rel: ")
+    if absOrRel == "abs":
+        absDist = input("New absolute position (mm): ")
+        reply = zaber.move_abs(absDist*20997)
+        zaberCommandCheck(reply)
+    if absOrRel == "rel":
+        relDist = input("Move by relative dist. (mm): ")
+        reply = zaber.move_vel(relDist*20997)
+        zaberCommandCheck(reply)
+    
+    
+    
+
 
 
     
