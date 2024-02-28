@@ -63,6 +63,7 @@ def writeCommandValon(cmd):
     response = response_bytes.decode().strip()
     print(response)
 
+#connecting SRS DG535
 def connectSRS(srsAddress):
     global inst
     rm = pyvisa.ResourceManager('')
@@ -71,6 +72,7 @@ def connectSRS(srsAddress):
     inst = rm.open_resource(srsAddress)
     print(inst.write('IS'))
     
+#writing command SRS DG535
 def commandSRS(srsCmd):
     print("Sending ", srsCmd)
     returned = inst.write(srsCmd)
