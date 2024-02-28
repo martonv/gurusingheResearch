@@ -5,6 +5,7 @@ rm.list_resources()
 
 inst = rm.open_resource('GPIB0::9::INSTR')
 
+#you didnt write comments you moron now it's been two weeks and I don't remember what this does
 delays = {"T0":"1", "A":"2", "B":"3", "C":"5", "D":"6"}
 
 while True:
