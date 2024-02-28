@@ -98,6 +98,10 @@ writeCommandValon("Frequency {valFreq}M")
 writeCommandValon("STEP {valStepFreq}M")
 
 #srs inputs
+#sets trig to INT
+commandSRS("TM 0")
+
+#delays C, 5 by D, 6 + 0.000001s
 commandSRS("DT 5,6,1E-6")
 
 #zaber error catch
