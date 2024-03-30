@@ -103,6 +103,12 @@ def checkZaberCommand(reply):
         return False
     else: # Command was accepted
         return True
+    
+#moves zaber 
+def moveZaberByVel(speed):
+    with AsciiSerial("COM4") as port:
+        zaberDevice = AsciiDevice(port, 1)
+        reply = zaberDevice.move_vel(speed)
         
 #write Valon cmds
 def writeValonCommand(cmd):
@@ -177,7 +183,7 @@ def estabOscSettings():
     termination = '50E+0'
     vScale = '400E-6'
     triggerLvl = '60E-03'
-    triggerSource = 'CH2'
+    triggerSource = 'CH1'
 
     writeOscCmd(f'HORizontal:MODE:SCAle {horScale}') #horizontal scale, each div (*10)
     #scope.write('HORizontal:MODE:RECOrdlength 20E+3')
@@ -197,26 +203,29 @@ def estabOscFFTSettings():
     #hardcoding settings for now 
     mathChannel = 'MATH2'
     mathAverages = '1000000'
-    unitType = 'LINEAr'
-    autoScale = '0'
+    unitType = 'Linear'
+    autoScale = 'OFF'
     vScale = '100'
     centerFreq = '30E6'
     vSpan = '5E6'
-    vertPos = '-4'
+    vertPos = '4'
     windowType = 'KAISERBessel'
     gateWidth = '100E-6'
     gatePos = '0'
     channel = 'CH1'
     #original settings
-    horScale = '10E-6'
+    horScale = '5E-6'
     sampleRate = '100E+6'
     termination = '50E+0'
     vScale = '400E-6'
     triggerLvl = '60E-03'
+    triggerSource = 'CH1'
 
     #establish math
     writeOscCmd(f'{mathChannel}:DEFINE "SpectralMag(AVG({channel}))"')
+    writeOscCmd(f'{mathChannel}:SPECTral:MAG {unitType}')
     writeOscCmd(f'SELECT:{mathChannel} 1')
+    r = queryOscCmd('*opc?') 
 
     writeOscCmd(f'HORizontal:MODE:SCAle {horScale}') #horizontal scale, each div (*10)
     #scope.write('HORizontal:MODE:RECOrdlength 20E+3')
@@ -227,26 +236,26 @@ def estabOscFFTSettings():
     writeOscCmd(f'{channel}:BANdwidth TWOfifty')
     writeOscCmd(f'{channel}:COUPling DC') #
     writeOscCmd(f'TRIGger:A:LEVel {triggerLvl}') #fixes trigger level
-    writeOscCmd('TRIGGER:A:EDGE:SOURCE CH2') #sets trigger source
+    writeOscCmd(f'TRIGGER:A:EDGE:SOURCE {triggerSource}') #sets trigger source
 
     #hardcoding settings [for now]
     writeOscCmd(f'{mathChannel}:NUMAVg {mathAverages}') #sets math averages
-    writeOscCmd(f'{mathChannel}:NUMAVg {mathAverages}') #sets math averages
-    #scope.write('MATH2:SPECTral:MAG DBM')
+    #scope.write('MATH2:SPECTral:MAG LINEAr')
     writeOscCmd(f'{mathChannel}:SPECTral:MAG {unitType}') #sets units off of dB
-    # r = scope.query('*opc?') # sync
+    #r = scope.query('*opc?') # sync
     writeOscCmd(f'{mathChannel}:VERTICAL:AUTOSCALE {autoScale}') #removes autoscaling so vert scale can be set
     writeOscCmd(f'{mathChannel}:VERTICAL:SCALE {vScale}') #sets math channel vertical scale
-    #writeOscCmd('MATH2:VERTICAL:AUTOSCALE 0')
-    #writeOscCmd(f'MATH2:SPECTral:CENTER {centerFreq}')
-    r = queryOscCmd('*opc?') 
-    #writeOscCmd(f'MATH2:SPECTral:SPAN {vSpan}')
+    writeOscCmd('MATH2:VERTICAL:AUTOSCALE 0')
+    # writeOscCmd(f'MATH2:SPECTral:CENTER {centerFreq}')
+    # r = queryOscCmd('*opc?') 
+    # writeOscCmd(f'MATH2:SPECTral:SPAN {vSpan}')
     r = queryOscCmd('*opc?') 
     writeOscCmd(f'{mathChannel}:VERTical:POSition {vertPos}')
     writeOscCmd(f'{mathChannel}:SPECTral:WINdow {windowType}') #multiplying all gate data by one
     writeOscCmd(f'{mathChannel}:SPECTral:GATEWIDTH {gateWidth}') #setting math waveform gate width
     writeOscCmd(f'{mathChannel}:SPECTral:GATEPOS {gatePos}') #controls FFT gate position 
-    #writeOscCmd('TRIGger:A:LEVel 60e-03')
+    writeOscCmd('TRIGger:A:LEVel 60e-03')
+
 #
 def standardWaveformAcq():
     global recordLength 
@@ -289,7 +298,7 @@ def fftWaveformAcq():
 
     # io config
     writeOscCmd('header 0')
-    writeOscCmd('data:encdg SRPBINARY')
+    writeOscCmd('data:encdg SRPbinary')
     writeOscCmd('data:source MATH2') # channel
     writeOscCmd('data:start 1') # first sample
     recordLength = int(queryOscCmd('horizontal:recordlength?'))
@@ -334,7 +343,7 @@ def contAcqWF():
     # acq config
     writeOscCmd('acquire:state 0') # stop
     writeOscCmd('acquire:STOPAfter RUNSTop') # cont
-    writeOscCmd('DISplay:WAVEform OFF')
+    #writeOscCmd('DISplay:WAVEform OFF')
     writeOscCmd('curvestream?')
     writeOscCmd('acquire:state 1') # run
     #writeOscCmd('curvestream?')
@@ -347,6 +356,7 @@ def contAcqWF():
     while True:
         tx = time.perf_counter()
         bin_wave = oscilloScope.query_binary_values('curve?', datatype='b', container=np.array)
+        fftYValues = np.array(bin_wave, dtype='float')
         print(max(bin_wave))
         ty = time.perf_counter()
         diff = ty-tx
@@ -365,7 +375,44 @@ def contAcqWF():
     #         print(bin_wave)
     #     elif bin_wave == temp:
     #         x = False
-    return
+
+#returns contFFT from scope
+def contFFT():
+
+    #turn on settings
+    estabOscFFTSettings()
+
+    # io config
+    writeOscCmd('header 0')
+    writeOscCmd('data:encdg SRPbinary')
+    writeOscCmd('data:source MATH2') # channel
+    # writeOscCmd('data:start 1') # first sample
+    # recordLength = int(queryOscCmd('horizontal:recordlength?'))
+    # writeOscCmd('data:stop {}'.format(recordLength)) # last sample
+    writeOscCmd('wfmoutpre:byt_n 4') # 1 byte per sample
+
+    # acq config
+    writeOscCmd('acquire:state 0') # stop
+    writeOscCmd('acquire:STOPAfter RUNSTop') # cont
+    #writeOscCmd('DISplay:WAVEform OFF')
+    writeOscCmd('curvestream?')
+    writeOscCmd('acquire:state 1') # run
+    #writeOscCmd('curvestream?')
+    # t5 = time.perf_counter()
+    # r = queryOscCmd('*opc?') # sync
+    # t6 = time.perf_counter()
+    #print('acquire time: {} s'.format(t6 - t5))
+
+    x = 0
+    while x<30:
+        tx = time.perf_counter()
+        bin_wave = oscilloScope.query_binary_values('curve?', datatype='f', container=np.array, is_big_endian=True)
+        ty = time.perf_counter()
+        diff = ty-tx
+        print(f'time: {diff}')
+        x+=1
+
+    return bin_wave
 
 
 #get x and y vals from FFT waveform
@@ -448,18 +495,33 @@ def fftFromScope():
 
     #acquire vals
     xValues, yValues = scaleFFT(waveValues)
-
+    
+    #plot values 
     generatePlot(xValues, yValues)
 
+#runs cont FFT from scope
+def contFFTFromScope():
+    estabOscFFTSettings()
+    grabParam()
+
+    #acquire waveform
+    waveValues = contFFT()
+
+    #acquire vals
+    xValues, yValues = scaleFFT(waveValues)
+
+    #plot values 
+    generatePlot(xValues, yValues)
+
+#gets zaber input properties (probably not needed)
 def zaberInput():
     global zaberStep, zaberVel, zaberStart, zaberDist
     zaberStep = input("Set Zaber step size (mm): ")
     zaberVel = input("Set Zaber velocity (mm/s): ")
     zaberStart = input("Set Zaber start pos (0 if 0mm) (mm): ")
     zaberDist = input("Set Zaber end distance (mm): ")
-    zaberDevice.move_rel(zaberStart*20997)
-    zaberDevice.move_vel(zaberVel*20997)   
 
+#gets valon input properties
 def valonInput():
     global valonFreq, valonFreqStep, valonTotalSteps
     valonFreq = input("Starting frequency? (MHz): ")
@@ -468,6 +530,10 @@ def valonInput():
     writeValonCommand(f"STEP {valonFreqStep}M")
     valonTotalSteps = input("How many steps? ")
     writeValonCommand(f"STEP {valonTotalSteps}M")
+
+def calibrationInit():
+
+    return
 
 def main():
     global modeSetting, valonConnect
@@ -487,11 +553,8 @@ def main():
             waveformPCFFT()
         case 'FFTWF':
             fftFromScope()
-        case 'ContWF':
-            #contAcqWF()
-            nothing = 1
-        case 'ContFFT':
-            nothing = 1
+        
+        
 
     #user inputs        
     # valonInput()
@@ -519,9 +582,17 @@ def main():
 #probably write the initializing into a function where you can use "try:"
 
 if __name__ == "__main__":
+    global t1
+    #t1 = threading.Thread(target=contAcqWF)
     main()
-    if modeSetting['mode'] == 'contWF' or modeSetting == 'contFFT':
+    if modeSetting['mode'] == 'ContWF':
         t1 = threading.Thread(target=contAcqWF)
+        print("Starting first thread...")
         t1.start()
+    elif modeSetting['mode'] == 'ContFFT':
+        t1 = threading.Thread(target=contFFT)  
+        print("Starting first thread...")
+        t1.start()
+    
 
 
