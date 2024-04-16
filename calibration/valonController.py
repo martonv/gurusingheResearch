@@ -24,9 +24,11 @@ def initializeValon(port):
             self.write(b'ID?\r')
             response_bytes = self.read(1024) #total bytes expected back from return
             print(response_bytes)
-
-            print(f"Serial port {port_name} opened successfully.")
-            time.sleep(1.0)
+            #CW mode (continuous wave)
+            print("________________________________________________________")
+            print(f"Serial port for Valon: {port_name} opened successfully.")
+            print("________________________________________________________")
+            time.sleep(0.5)
             # except self.SerialException as e:
             #     print(f"Error opening serial port: {e}")
 
@@ -34,22 +36,10 @@ def initializeValon(port):
     
     return valonConnect
 
-#write Valon cmds
+#write Valon cmds, either writing or querying based on presence of \r
 def writeValonCommand(cmd):
+    #format command with line termination \r, encode (utf8 I think), send to Valon
     formatCmd = f"{cmd}"
-    valonConnect.reset_input_buffer()
-
-    #testing with query, splitting strings to do so
-    # splitCmd = formatCmd.replace('<', ' ')
-    # queryCmd = splitCmd.split(' ')[0] + '?\r'
-    # print(queryCmd)
-    # valonConnect.write(queryCmd.encode())
-    # time.sleep(delay)
-    # response_bytes = valonConnect.read(1024)
-    # response = response_bytes.decode().strip()
-    # print(response)
-
-    #then ready to send cmd
     formatCmd += "\r" 
     valonConnect.reset_input_buffer()
     print(formatCmd)
@@ -58,13 +48,37 @@ def writeValonCommand(cmd):
     response_bytes = valonConnect.read(1024)
     response = response_bytes.decode().strip()
     print(response)
+    #return response
 
 #valon settings init
 def valonSettings():
     writeValonCommand("MODe CW ")
+    writeValonCommand("OEN 1")
+
 
 def valonStepUp():
     writeValonCommand("FrequencyINCrement")
 
 def valonStepDown():
     writeValonCommand("FrequencyINCrement")
+
+def valonSettings():
+    print("Establishing Valon Settings: ")
+
+    currRF = writeValonCommand("PoWeR?")
+
+    #set RFLevel, defaults to 1 in valonSettings
+    rfLevel = input(f"Adjust RF Level? Currently: {currRF} | (Y/N): ")
+    #turn on RF level
+    writeValonCommand("PDN 1")
+    if rfLevel == "Y":
+        rfLevelVal = input("RF Level in Db/M: ")
+        writeValonCommand(f"PoWeR{rfLevelVal}")
+        writeValonCommand("PDN 1")
+
+    #sets reference source, EXT is 1, INT is 0
+    refSource = input("EXT or INT Reference Source? (INT/EXT): ")
+    if refSource == "EXT":
+        writeValonCommand("REFS 1")
+    elif refSource == "INT":
+        writeValonCommand("REFS 0")
