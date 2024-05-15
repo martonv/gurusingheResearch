@@ -82,18 +82,26 @@ def estabOscSettings():
     writeOscCmd(f'TRIGger:A:LEVel {triggerLvl}') #fixes trigger level
     writeOscCmd(f'TRIGGER:A:EDGE:SOURCE {triggerSource}') #sets trigger source
 
-def estabMAXSettings(cursor1, cursor2):
+def estabMAXSettings():
+    #setting up ch1
+    writeOscCmd('CH1:TERMINATION 50.0E+0')
+
+    #SETTING UP MATH
+    writeOscCmd('MATH3:DEFINE "SpectralMag(CH1)"')
+    writeOscCmd('MATH3:SPECTral:CENTER 100E6')
+    writeOscCmd('MATH3:SPECTral:SPAN 20E6')
+
     #cursor code
     writeOscCmd("CURSOR:STATE ON")
-    writeOscCmd("CURSor:SOUrce1 MATH1")
-    writeOscCmd("CURSor:SOURce2 MATH1")
-    writeOscCmd("CURSor:VBArs:POS1 29.9E+6")
-    writeOscCmd("CURSor:VBArs:POS2 30.2E+6")
+    writeOscCmd("CURSor:SOUrce1 MATH3")
+    writeOscCmd("CURSor:SOURce2 MATH3")
+    writeOscCmd("CURSor:VBArs:POS1 99.9E+6")
+    writeOscCmd("CURSor:VBArs:POS2 100.1E+6")
     writeOscCmd("CURSOR:STATE ON")
     print(queryOscCmd("CURSor?"))
 
     #max set code
-    writeOscCmd('MEASUREMENT:MEAS1:SOURCE1 MATH1')
+    writeOscCmd('MEASUREMENT:MEAS1:SOURCE1 MATH3')
     writeOscCmd('MEASUrement:MEAS1:TYPe MAXimum')
     writeOscCmd('MEASUrement:MEAS1:STATE ON')
     

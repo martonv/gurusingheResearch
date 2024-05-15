@@ -10,6 +10,8 @@ def initializeSRS():
     print("_______________________________________________________")
     print("SRS opened successfully... Switching to EXT Triggering.")
     print("_______________________________________________________")
+    stopPulse()
+    #turns on external trigger
     writeSRSCmd("TM 1; TL 1")
 
 #hardcoded freq, hardcoded delay, starts triggering
@@ -30,7 +32,25 @@ def setFreq():
     return frequency
 
 def startTrig():
-    writeString = "TM 0; TR 0, " + str(frequency)
+    writeString = "TR 0, " + str(frequency)
+    writeSRSCmd(writeString)
+    writeString = "TM 0"
     writeSRSCmd(writeString)
     print("Activating internal trigger at ", str(frequency))
 
+def stopTrig():
+    writeString = "TM 1; TL 1"
+    writeSRSCmd(writeString)
+
+def startPulse():
+    writeString = "DT 3,2,100E-9"
+    writeSRSCmd(writeString)
+
+def stopPulse():
+    writeString = "DT 3,2,0"
+    writeSRSCmd(writeString)
+
+def setTrig(freqIn):
+    writeString = "TM 0; TR 0, " + str(freqIn)
+    writeSRSCmd(writeString)
+    print("Activating internal trigger at ", str(frequency))

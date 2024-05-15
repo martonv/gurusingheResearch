@@ -102,76 +102,86 @@ def calibrationInit():
 
 
     #Valon config
-    valonFreq = input("Starting frequency? (MHz): ")
-    valonController.writeValonCommand(f"Frequency {valonFreq}M")
-    valonFreqStep = input("Freq step size? (MHz): ")
-    valonController.writeValonCommand(f"STEP {valonFreqStep}M")
-    valonTotalSteps = input("Calibrate until what frequency? (MHz): ")
+    totalFreq = float(input("Starting frequency? (MHz): "))
+    valonFreq = totalFreq - 100
+    valonController.writeValonCommand(f"Frequency {valonFreq} M")
+    # valonFreqStep = input("Freq step size? (MHz): ")
+    # valonController.writeValonCommand(f"STEP {valonFreqStep}M")
+    # valonTotalSteps = input("Calibrate until what frequency? (MHz): ")
+
+
 
 
     #Zaber config
-    setZaber = input("Setup Zaber? Y/N: ")
-    if setZaber == "Y":
-        #sends zaber to 0mm
-        zaberController.homeZaber()        
-        #1mm = 20997.375 steps
-        #1m/s = 3040.2099738 steps/s
+    # setZaber = input("Setup Zaber? Y/N: ")
+    # if setZaber == "Y":
+    #sends zaber to 0mm
+    zaberController.homeZaber()        
+    #1mm = 20997.375 steps
+    #1m/s = 3040.2099738 steps/s
 
-        #setting zaber travel dist, initial start pos:
-        while True: 
-            try:
-                startPosZaber = float(input("Starting position? (mm): "))
-                endPosZaber = float(input("Ending position? (mm): "))
+    #setting zaber travel dist, initial start pos:
+    while True: 
+        try:
+            #OLD, FIX ME
+            #startPosZaber = float(input("Starting position? (mm): "))
+            #endPosZaber = float(input("Ending position? (mm): "))
+            
+            #FIX ME *****************************************************************************************************************************
+            #startPosZaber = ((4.23491632201815e-9*(totalFreq**2)) + (0.00214275759953761*totalFreq) - 2.05776365002228)
+            #double for this since the first val taken out of midpt
+            endPosZaber = 37
+            startPosZaber = 36
 
-                #global positions in MM for plotting
-                startPosZaberMM = startPosZaber
-                endDistZaberMM = endPosZaber
+            #global positions in MM for plotting
+            startPosZaberMM = startPosZaber
+            endDistZaberMM = endPosZaber
 
-                print("Attempting to travel from ", startPosZaber, "mm to ", endPosZaber, "mm")
-                if endPosZaber <= 40 and startPosZaber <= 40 and endPosZaber >= 0 and startPosZaber >= 0:
-                    endPosZaber = round(endPosZaber * 20997.375)
-                    startPosZaber = round(startPosZaber * 20997.375)
-                elif endPosZaber < 0 or endPosZaber > 40 or startPosZaber < 0 or startPosZaber > 40:
-                    raise ValueError
-                break
-            except ValueError:
-                print("Invalid integers somewhere. The numbers must be between 0 and 40mm.")
+            print("Attempting to travel from ", startPosZaber, "mm to ", endPosZaber, "mm")
+            if endPosZaber <= 40 and startPosZaber <= 40 and endPosZaber >= 0 and startPosZaber >= 0:
+                endPosZaber = round(endPosZaber * 20997.375)
+                startPosZaber = round(startPosZaber * 20997.375)
+            elif endPosZaber < 0 or endPosZaber > 40 or startPosZaber < 0 or startPosZaber > 40:
+                raise ValueError
+            break
+        except ValueError:
+            print("Invalid integers somewhere. The numbers must be between 0 and 40mm.")
 
-        #step size only needed for other approach
-        #if you ADD IT BACK READD AS GLOBAL
-        # while True: 
-        #     try:
-        #         stepSizeZaber = int(input("Step size between acquisitions? (mm, max 10mm): "))
-        #         if stepSizeZaber <= 10:
-        #             stepSizeZaber = round(stepSizeZaber * 20997.375)
-        #         elif stepSizeZaber < 0 or stepSizeZaber > 10:
-        #             raise ValueError
-        #         break
-        #     except ValueError:
-        #         print("Invalid integer. The number must be between 0 and 10mm.")
+    #step size only needed for other approach
+    #if you ADD IT BACK READD AS GLOBAL
+    # while True: 
+    #     try:
+    #         stepSizeZaber = int(input("Step size between acquisitions? (mm, max 10mm): "))
+    #         if stepSizeZaber <= 10:
+    #             stepSizeZaber = round(stepSizeZaber * 20997.375)
+    #         elif stepSizeZaber < 0 or stepSizeZaber > 10:
+    #             raise ValueError
+    #         break
+    #     except ValueError:
+    #         print("Invalid integer. The number must be between 0 and 10mm.")
 
-        #speed for zaber
-        while True:
-            try:
-                speedZaber = float(input("Set the movement velocity of the Zaber (mm/s, max 3.5m/s): "))
-                moveVelMM = speedZaber
-                if speedZaber <= 3.5 and speedZaber > 0:
-                    speedZaber = round(speedZaber * 34402.09974)
-                elif speedZaber < 0 or speedZaber > 3.5:
-                    raise ValueError
-                break
-            except ValueError:
-                print("Invalid integer. The number must be between 0 and 3.5mm.")
+    #speed for zaber
+    while True:
+        try:
+            speedZaber = float(input("Set the movement velocity of the Zaber (mm/s, max 3.5m/s): "))
+            moveVelMM = speedZaber
+            if speedZaber <= 3.5 and speedZaber > 0:
+                speedZaber = round(speedZaber * 34402.099737532773)
+            elif speedZaber < 0 or speedZaber > 3.5:
+                raise ValueError
+            break
+        except ValueError:
+            print("Invalid integer. The number must be between 0 and 3.5mm.")
 
-        zaberController.zaberSetup(startPosZaber, endPosZaber)
+    zaberController.zaberSetup(startPosZaber, endPosZaber)
 
     #SRS config
     trigFreq = SRScontroller.setFreq()
 
     #osc cursor config
     
-    oscCursor1 = input("Enter cursor 1 bounds (MHz): ")
-    oscCursor2 = input("Enter cursor 2 bounds (MHz): ")
+    # oscCursor1 = input("Enter cursor 1 bounds (MHz): ")
+    # oscCursor2 = input("Enter cursor 2 bounds (MHz): ")
 
 
 #start by triggering, runs zaber totality of 
@@ -180,15 +190,15 @@ def calibrateRun():
     maxList = []
     timeList = []
 
-    oscilloscopeController.estabMAXSettings(oscCursor1, oscCursor2)
+    oscilloscopeController.estabMAXSettings()
 
     startZaber = startPosZaber/20997
     print(f"Moving Zaber to {startZaber}.")
     zaberController.zaberDevice.poll_until_idle()
 
-    valonSteps = (float(valonTotalSteps) - float(valonFreq))/float(valonFreqStep) #check this with ranil, do we want to run twice if from 12005 to 12010?
+    #valonSteps = (float(valonTotalSteps) - float(valonFreq))/float(valonFreqStep) #check this with ranil, do we want to run twice if from 12005 to 12010?
     #zaberMoves = (endPosZaber - startPosZaber)/stepSizeZaber
-    valonCounter = 1
+    #valonCounter = 1
 
     #start osc run/acq
     oscilloscopeController.oscCalibStart()
@@ -196,38 +206,38 @@ def calibrateRun():
     #starts trigger and thus calibration
     SRScontroller.startTrig()
 
-    while valonCounter <= valonSteps:
+    # while valonCounter <= valonSteps:
         
-        oscilloscopeController.clearOsc()
+    oscilloscopeController.clearOsc()
 
-        threadZaber = threading.Thread(target=zaberThread)
-        threadAcquire = threading.Thread(target=acquireThread)
-        #threads
-        threads = [threadZaber, threadAcquire]
+    threadZaber = threading.Thread(target=zaberThread)
+    threadAcquire = threading.Thread(target=acquireThread)
+    #threads
+    threads = [threadZaber, threadAcquire]
 
-        #time based loop here acquiring based on trigFreq for entirity of zaber mvmt
-        #pollUntilIdle() for zaber thread
-        #acquire until done for acquireThread
-        
-        #loop to start and end threads together 
-        for threadInstances in threads:
-            threadInstances.start()
+    #time based loop here acquiring based on trigFreq for entirity of zaber mvmt
+    #pollUntilIdle() for zaber thread
+    #acquire until done for acquireThread
+    
+    #loop to start and end threads together 
+    for threadInstances in threads:
+        threadInstances.start()
 
-        for threadInstances in threads:
-            threadInstances.join()
+    for threadInstances in threads:
+        threadInstances.join()
 
-        #set max speed back to fast or this will be SLOW on SLOW MOVES
+    #set max speed back to fast or this will be SLOW on SLOW MOVES
 
-        zaberController.moveToZaber(startPosZaber)
-        zaberController.zaberDevice.poll_until_idle()
-        currPos = zaberController.zaberDevice.get_position()
-        print("Homing... Zaber is at position: ", currPos/20997)
-        zaberController.zaberDevice.poll_until_idle()
+    zaberController.moveToZaber(startPosZaber)
+    zaberController.zaberDevice.poll_until_idle()
+    currPos = zaberController.zaberDevice.get_position()
+    print("Homing... Zaber is at position: ", currPos/20997)
+    zaberController.zaberDevice.poll_until_idle()
 
-        print("Current Valon Step: ", valonCounter)
-        print("Total steps remaining: ", valonSteps)
-        print("Steps remaining: ", int(valonSteps) - valonCounter)
-        valonCounter += 1
+        # print("Current Valon Step: ", valonCounter)
+        # print("Total steps remaining: ", valonSteps)
+        # print("Steps remaining: ", int(valonSteps) - valonCounter)
+        # valonCounter += 1
 
         #*******************************************LOOK HERE MARTON
         # VALON NEEDS TO STEP UP IF ACTUALLY RUNNING
@@ -239,7 +249,7 @@ def calibrateRun():
     #cleanup this code and comment
     print("acq length: ", len(maxList))
 
-    timeTravel = (endDistZaberMM/moveVelMM) * int(valonSteps)
+    #timeTravel = (endDistZaberMM/moveVelMM) * int(valonSteps)
     #totalPos = timeTravel * moveVelMM
 
     #**********************
@@ -258,7 +268,7 @@ def calibrateRun():
         plt.show()
         print(max(maxLists))
     
-    print("calc time travel: ", timeTravel)
+    #print("calc time travel: ", timeTravel)
 
     #findPeakPos()
 
@@ -268,6 +278,24 @@ def calibrateRun():
         for index, values in enumerate(items):
             if values == maxer:
                 print("Max position found: ", posArr[index])
+                peakMax = posArr[index]
+
+    print("Moving to maximum: ", peakMax)
+    zaberController.moveToZaber(int(peakMax*20997))
+    SRScontroller.stopTrig()
+    SRScontroller.startPulse()
+    SRScontroller.setTrig(5)
+
+    counter = 0
+    first = time.perf_counter()
+
+    time.sleep(20)
+    SRScontroller.stopTrig()
+    # while counter >=20:
+    #     counter = time.perf_counter() - first
+    
+    SRScontroller.stopPulse()
+        
 
 def findPeakPos():
     peak = len(maxList[0])

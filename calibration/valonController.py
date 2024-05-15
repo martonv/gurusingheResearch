@@ -68,17 +68,16 @@ def valonSettings():
     currRF = writeValonCommand("PoWeR?")
 
     #set RFLevel, defaults to 1 in valonSettings
-    rfLevel = input(f"Adjust RF Level? Currently: {currRF} | (Y/N): ")
     #turn on RF level
     writeValonCommand("PDN 1")
-    if rfLevel == "Y":
-        rfLevelVal = input("RF Level in Db/M: ")
-        writeValonCommand(f"PoWeR{rfLevelVal}")
-        writeValonCommand("PDN 1")
+
+    # rfLevelVal = input("RF Level in Db/M: ")
+    # writeValonCommand(f"PoWeR{rfLevelVal}")
+    # writeValonCommand("PDN 1")
 
     #sets reference source, EXT is 1, INT is 0
-    refSource = input("EXT or INT Reference Source? (INT/EXT): ")
-    if refSource == "EXT":
-        writeValonCommand("REFS 1")
-    elif refSource == "INT":
-        writeValonCommand("REFS 0")
+    #refSource = input("EXT or INT Reference Source? (INT/EXT): ")
+    #if refSource == "EXT":
+    writeValonCommand("REFS 1")
+    # elif refSource == "INT":
+    #     writeValonCommand("REFS 0")
