@@ -55,12 +55,17 @@ def valonSettings():
     writeValonCommand("MODe CW ")
     writeValonCommand("OEN 1")
 
+def valonSetStepSize(stepSize):
+    writeValonCommand(f"STEP {stepSize}M")
 
 def valonStepUp():
-    writeValonCommand("FrequencyINCrement")
+    writeValonCommand("FrequencyINCRement")
+    writeValonCommand("Frequency")
 
 def valonStepDown():
-    writeValonCommand("FrequencyINCrement")
+    writeValonCommand("FrequencyDECRement")
+    valonFreq = writeValonCommand("Frequency")
+    print(valonFreq)
 
 def valonSettings():
     print("Establishing Valon Settings: ")

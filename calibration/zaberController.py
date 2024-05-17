@@ -39,8 +39,8 @@ def zaberSetup(startPosZaber, travelDistZaber):
 def zaberStart(zaberSpeed):
     zaberDevice.move_vel(zaberSpeed)
 
-def zaberSetMoveSpeed(zaberSpeed):
-    return
+def zaberSetSpeed(zaberSpeed):
+    zaberDevice.send(f"/set maxspeed {zaberSpeed}")
 
 
 

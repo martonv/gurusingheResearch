@@ -6,117 +6,32 @@ import pandas as pd
 import threading
 import valonController, oscilloscopeController, zaberController, SRScontroller
 
-#get x and y vals from FFT waveform
-def scaleFFT(waveValues):
-    fftYValues = np.array(waveValues, dtype='float')
-    fftXValues = np.linspace(oscilloscopeController.timeStart, oscilloscopeController.timeScale*len(waveValues), len(waveValues), endpoint=False)
-    return fftXValues, fftYValues
-
-
-#scales time values after acquisition
-def scaleTime():
-    totalTime = oscilloscopeController.timeScale * oscilloscopeController.recordLength
-    timeStop = oscilloscopeController.timeStart + totalTime
-    scaledTime = np.linspace(0, timeStop, num=oscilloscopeController.recordLength, endpoint=False)
-    return scaledTime
-
-
-#scales waveform values after acquisition
-def scaleWave(waveValues):
-    unscaled_wave = np.array(waveValues, dtype='float')
-    scaled_wave = (unscaled_wave - oscilloscopeController.verticalPosition) * oscilloscopeController.verticalScale + oscilloscopeController.verticalOffset
-    return scaled_wave
-
-
-#pc based FFT via numpy
-def fft(yValues):
-    yFFT = np.abs(np.fft.fft(yValues))
-    xFFT = np.abs(np.fft.fftfreq(oscilloscopeController.recordLength, oscilloscopeController.timeScale))
-    return xFFT, yFFT
-
-
-#generate plot at termination of command
-def generatePlot(xWave, yWave):
-    plt.plot(xWave, yWave)
-    plt.title("Data")
-    plt.xlabel("Y")
-    plt.ylabel("X")
-    plt.show()
-    return
-
-
-#if called, this function runs wf from scope and fft on PC
-def waveformPCFFT():
-    oscilloscopeController.estabOscSettings()
-    oscilloscopeController.grabParam()
-
-    #normal acq
-    waveValues = oscilloscopeController.standardWaveformAcq()
-
-    #fft on pc of normal acq
-    fftXValues, fftYValues = fft(waveValues)
-
-    #scaling values to param
-    scaledWave = scaleWave(waveValues)
-    scaledTime = scaleTime()
-
-    # plotting normal acq, normal acq FFT via PC
-    generatePlot(scaledTime, scaledWave)
-    generatePlot(fftXValues, fftYValues)
-
-
-#gets fftWF from scope 
-def fftFromScope():
-    #estabOscSettings()
-    oscilloscopeController.estabOscFFTSettings()
-    oscilloscopeController.grabParam()
-
-    #acquire waveform
-    waveValues = oscilloscopeController.fftWaveformAcq()
-
-    #acquire vals
-    xValues, yValues = scaleFFT(waveValues)
-    
-    #plot values 
-    #generatePlot(xValues, yValues)
-
-
-#runs cont FFT from scope
-def contFFTFromScope():
-    oscilloscopeController.estabOscFFTSettings()
-    oscilloscopeController.grabParam()
-
-    #acquire waveform
-    waveValues = oscilloscopeController.contFFT()
-
-    #acquire vals
-    xValues, yValues = scaleFFT(waveValues)
-
-    #plot values 
-    generatePlot(xValues, yValues)
-
-
-#
+#initializing calibration variables, commands, devices, etc.
 def calibrationInit():
-    global valonFreq, valonFreqStep, valonTotalSteps, startPosZaber, endPosZaber, speedZaber, oscCursor1, oscCursor2, trigFreq, moveVelMM, endDistZaberMM, startPosZaberMM
+    global valonFreq, valonFreqStep, stepUpVar, startPosZaber, endPosZaber, speedZaber, trigFreq, moveVelMM, endDistZaberMM, startPosZaberMM, awgFreq
 
-
+    awgFreq = float(input("What is the AWG frequency? (EX: 30 if 30mHz): "))
+    oscilloscopeController.estabMAXSettings(awgFreq)
     #Valon config
-    totalFreq = float(input("Starting frequency? (MHz): "))
-    valonFreq = totalFreq - 100
+    totalFreq = float(input("Starting TOTAL (AWG INCLUDED, THIS SUBTRACTS IT FOR YOU) frequency? (MHz): "))
+    valonFreq = totalFreq - awgFreq
     valonController.writeValonCommand(f"Frequency {valonFreq} M")
-    # valonFreqStep = input("Freq step size? (MHz): ")
-    # valonController.writeValonCommand(f"STEP {valonFreqStep}M")
-    # valonTotalSteps = input("Calibrate until what frequency? (MHz): ")
 
-
-
+    #getting freq step if needed
+    print("******IF ONLY RUNNING ONCE, ENTER ANYTHING BUT A NUMBER")
+    valonFreqStep = input("Freq step size? (MHz): ")
+    
+    try:
+        valonFreqStep = float(valonFreqStep)
+        stepUpVar = True
+    except ValueError:
+        stepUpVar = False
+        print("Only running single sequence.")
 
     #Zaber config
     # setZaber = input("Setup Zaber? Y/N: ")
     # if setZaber == "Y":
-    #sends zaber to 0mm
-    zaberController.homeZaber()        
+    #sends zaber to 0mm     
     #1mm = 20997.375 steps
     #1m/s = 3040.2099738 steps/s
 
@@ -124,14 +39,13 @@ def calibrationInit():
     while True: 
         try:
             #OLD, FIX ME
-            #startPosZaber = float(input("Starting position? (mm): "))
-            #endPosZaber = float(input("Ending position? (mm): "))
+            startPosZaber = float(input("Starting position? (mm): "))
+            endPosZaber = float(input("Ending position? (mm): "))
             
             #FIX ME *****************************************************************************************************************************
             #startPosZaber = ((4.23491632201815e-9*(totalFreq**2)) + (0.00214275759953761*totalFreq) - 2.05776365002228)
             #double for this since the first val taken out of midpt
-            endPosZaber = 37
-            startPosZaber = 36
+            totalDist = endPosZaber - startPosZaber
 
             #global positions in MM for plotting
             startPosZaberMM = startPosZaber
@@ -147,25 +61,14 @@ def calibrationInit():
         except ValueError:
             print("Invalid integers somewhere. The numbers must be between 0 and 40mm.")
 
-    #step size only needed for other approach
-    #if you ADD IT BACK READD AS GLOBAL
-    # while True: 
-    #     try:
-    #         stepSizeZaber = int(input("Step size between acquisitions? (mm, max 10mm): "))
-    #         if stepSizeZaber <= 10:
-    #             stepSizeZaber = round(stepSizeZaber * 20997.375)
-    #         elif stepSizeZaber < 0 or stepSizeZaber > 10:
-    #             raise ValueError
-    #         break
-    #     except ValueError:
-    #         print("Invalid integer. The number must be between 0 and 10mm.")
-
     #speed for zaber
     while True:
         try:
             speedZaber = float(input("Set the movement velocity of the Zaber (mm/s, max 3.5m/s): "))
             moveVelMM = speedZaber
             if speedZaber <= 3.5 and speedZaber > 0:
+                totalTime = totalDist/speedZaber
+                print("Run time is: ", totalTime)
                 speedZaber = round(speedZaber * 34402.099737532773)
             elif speedZaber < 0 or speedZaber > 3.5:
                 raise ValueError
@@ -173,15 +76,13 @@ def calibrationInit():
         except ValueError:
             print("Invalid integer. The number must be between 0 and 3.5mm.")
 
+    totalTime = totalDist/speedZaber
+
     zaberController.zaberSetup(startPosZaber, endPosZaber)
 
     #SRS config
     trigFreq = SRScontroller.setFreq()
 
-    #osc cursor config
-    
-    # oscCursor1 = input("Enter cursor 1 bounds (MHz): ")
-    # oscCursor2 = input("Enter cursor 2 bounds (MHz): ")
 
 
 #start by triggering, runs zaber totality of 
@@ -189,16 +90,19 @@ def calibrateRun():
     global maxList, timeList
     maxList = []
     timeList = []
+    maxMaxVals = []
 
-    oscilloscopeController.estabMAXSettings()
 
+    #set max speed back to fast or this will be SLOW on SLOW MOVES
+    zaberController.zaberSetSpeed(101204)
     startZaber = startPosZaber/20997
     print(f"Moving Zaber to {startZaber}.")
+    zaberController.moveToZaber(startPosZaber)
     zaberController.zaberDevice.poll_until_idle()
-
-    #valonSteps = (float(valonTotalSteps) - float(valonFreq))/float(valonFreqStep) #check this with ranil, do we want to run twice if from 12005 to 12010?
-    #zaberMoves = (endPosZaber - startPosZaber)/stepSizeZaber
-    #valonCounter = 1
+    currPos = zaberController.zaberDevice.get_position()
+    print("Homing... Zaber is at position: ", currPos/20997)
+    zaberController.zaberDevice.poll_until_idle()
+    zaberController.zaberSetSpeed(speedZaber)
 
     #start osc run/acq
     oscilloscopeController.oscCalibStart()
@@ -226,23 +130,6 @@ def calibrateRun():
     for threadInstances in threads:
         threadInstances.join()
 
-    #set max speed back to fast or this will be SLOW on SLOW MOVES
-
-    zaberController.moveToZaber(startPosZaber)
-    zaberController.zaberDevice.poll_until_idle()
-    currPos = zaberController.zaberDevice.get_position()
-    print("Homing... Zaber is at position: ", currPos/20997)
-    zaberController.zaberDevice.poll_until_idle()
-
-        # print("Current Valon Step: ", valonCounter)
-        # print("Total steps remaining: ", valonSteps)
-        # print("Steps remaining: ", int(valonSteps) - valonCounter)
-        # valonCounter += 1
-
-        #*******************************************LOOK HERE MARTON
-        # VALON NEEDS TO STEP UP IF ACTUALLY RUNNING
-        # valonController.valonStepUp()
-
     #stops osc acq
     oscilloscopeController.oscCalibStop()
 
@@ -260,17 +147,14 @@ def calibrateRun():
 
     for maxLists in maxList:
         posArr = np.linspace(startPosZaberMM, endDistZaberMM, len(maxLists))
-        print("Length of arr: ", len(maxList))
+        print("Length of max: ", len(maxList))
+        print("Length of pos: ", len(posArr))
         print(max(maxLists))
         plt.plot(posArr, maxLists)
         plt.xlabel('Zaber Position (mm)')
         plt.ylabel('Intensity (Volts)')
         plt.show()
         print(max(maxLists))
-    
-    #print("calc time travel: ", timeTravel)
-
-    #findPeakPos()
 
     for items in maxList:
         print("len: ", len(items))
@@ -279,22 +163,38 @@ def calibrateRun():
             if values == maxer:
                 print("Max position found: ", posArr[index])
                 peakMax = posArr[index]
+                maxMaxVals.append(peakMax)
+    
+    peakMidpt = round((len(maxMaxVals))/2)
+    maxPos = maxMaxVals[peakMidpt]
 
-    print("Moving to maximum: ", peakMax)
-    zaberController.moveToZaber(int(peakMax*20997))
+    #moving to max peak pos
+    print("Moving to maximum at: ", maxPos, " mm")
+    zaberController.zaberSetSpeed(101204)
+    zaberController.moveToZaber(int(maxPos*20997))
+    zaberController.zaberDevice.poll_until_idle()
+    currPos = zaberController.zaberDevice.get_position()
+    print("Running scan... Zaber is at position: ", currPos/20997)
     SRScontroller.stopTrig()
+
+    #running experiment
     SRScontroller.startPulse()
     SRScontroller.setTrig(5)
 
-    counter = 0
-    first = time.perf_counter()
+    #acquiring waveform data
+    fftFromScope(awgFreq)
 
-    time.sleep(20)
-    SRScontroller.stopTrig()
-    # while counter >=20:
-    #     counter = time.perf_counter() - first
-    
-    SRScontroller.stopPulse()
+    # SRScontroller.stopTrig()
+    # SRScontroller.stopPulse()
+
+    #runs next step up if necessary 
+    if stepUpVar == True:
+        runBool = input("Do you want to run another experiment? (Y/N): ").lower()
+        if runBool == "y":
+            valonController.valonStepUp()
+            calibrateRun()
+        else:
+            return
         
 
 def findPeakPos():
@@ -323,87 +223,56 @@ def acquireThread():
     tempMaxList = []
     while loopVar == 1:
         #currently we are not acquiring based on frequency 
-        # currTime = time.time()
-        # if time.time() - currTime >= float(1/trigFreq):
         tempMaxList.append(float(oscilloscopeController.queryOscCmd('MEASUrement:MEAS1:VALUE?')))
     
     maxList.append(tempMaxList)
 
 
-# def startNStop():
-#     oscilloscopeController.grabParam()
-#     oscilloscopeController.estabOscFFTSettings()
-#     SRScontroller.startTrig()
-#     oscilloscopeController.contFFT()
+def fftFromScope(awgFreq):
+    timeScale, timeStart, verticalScale, verticalOffset, verticalPosition = oscilloscopeController.grabParam()
+
+    #acquire waveform
+    waveValues = oscilloscopeController.acquireFFTDataAtMax(awgFreq)
     
-#     valonSteps = (valonTotalSteps - valonFreq)/valonFreqStep
-#     zaberMoves = (endPosZaber - startPosZaber)/stepSizeZaber
-#     valonCounter = 1
+    #stopping experiment
+    oscilloscopeController.oscCalibStop()
+    SRScontroller.stopTrig()
+    SRScontroller.stopPulse()
 
-#     # while valonCounter <= valonSteps:
-        
-#     #     for zaberMvmts in range(1, zaberMoves+1):
-            
-#     #         #first, move zaber by step size
-#     #         zaberController.moveByZaber(stepSizeZaber)
+    #acquire vals
+    xValues, yValues = scaleFFT(waveValues, timeStart, timeScale)
+    
+    #plot values 
+    generatePlot(xValues, yValues)
 
-#     #         #then, theorize best way to acquire data over interval
-#     #         #let it run and just acquire 100 curvestream?
+    unscaled_wave = np.array(waveValues, dtype='float') 
+    DF = pd.DataFrame(unscaled_wave)
+    csvWriting = DF.to_csv("output.csv")
 
-#     #         acqCounter = 0
+def scaleFFT(waveValues, timeStart, timeScale):
+    fftYValues = np.array(waveValues, dtype='float')
+    fftXValues = np.linspace(timeStart, timeScale*len(waveValues), len(waveValues), endpoint=False)
+    return fftXValues, fftYValues
 
-#     #         #while acqCounter < 100:                    
-                    
-                   
-#         #increments freq up by stepSize
-#         # valonController.valonStepUp()
-#         # zaberController.homeZaber()
-#         # valonCounter+=1
-
-
+def generatePlot(xWave, yWave):
+    plt.plot(xWave, yWave)
+    plt.title("Data")
+    plt.xlabel("Y")
+    plt.ylabel("X")
+    plt.show()
+    return
 
 def main():
     global valonConnect
 
     #initialize devices: osc, srs, valon, zaber
     oscilloscopeController.initializeScope()
-    #oscilloscopeController.estabOscFFTSettings()
-    #oscilloscopeController.grabParam()
     SRScontroller.initializeSRS()
     valonConnect = valonController.initializeValon('COM3')
     valonController.valonSettings()
     zaberController.initializeZaber()
     calibrationInit()
     calibrateRun()
-
-    #getting current mode: 'Waveform/PCFFT', 'FFTWF', 'ContWF', 'ContFFT'
-    #modeSetting = oscilloscopeController.mode()
-    # print(modeSetting)
-    
-    # match modeSetting['mode']:
-    #     case 'Waveform/PCFFT':
-    #         waveformPCFFT()
-    #     case 'FFTWF':
-    #         fftFromScope()
-        
-    
-
-    # modeSRS = input("Would you like to trigger via SRS? Y/N: ")
-    # if modeSRS == 'Y':
-    #     initializeSRS()
-    # fourierTransform = input("Would you like to fourier transform? Y/N: ")
-    # if fourierTransform == 'Y':
-    #     whereFT = input("Scope or PC based FFT? S/PC: ")
-    #     if whereFT == 'S':
-    #         acquireFT()
-    #     elif whereFT == 'PC':
-    #         xValues, yValues = standardWaveformAcq()
-    #         acquirePCFT()
-    # elif fourierTransform == 'N':
-    #     standardWaveformAcq()
-
-
-
 
 #probably write the initializing into a function where you can use "try:"
 
